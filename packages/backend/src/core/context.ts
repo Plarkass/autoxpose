@@ -77,10 +77,16 @@ function createCoreServices(options: CoreServicesOptions): CoreServices {
   const accessLists = new AccessListService(db, settings);
   const services = new ServicesService(servicesRepo, settings, tagDetector, accessLists);
   const metadataUpdater = new MetadataUpdater(metadataLoader, services);
-  const sync = new SyncService(servicesRepo, settings, discovery ?? undefined);
+  const sync = new SyncService(servicesRepo, settings, discovery ?? undefined, accessLists);
   const exposeContext = { servicesRepo, settings, publicIp, lanIp, sync, accessLists };
   const expose = new ExposeService(exposeContext);
-  const streamingExpose = new StreamingExposeService(servicesRepo, settings, publicIp, lanIp);
+  const streamingExpose = new StreamingExposeService(
+    servicesRepo,
+    settings,
+    publicIp,
+    lanIp,
+    accessLists
+  );
   return {
     servicesRepo,
     services,

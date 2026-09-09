@@ -3,6 +3,7 @@ import { api, type AccessListRecord } from '../lib/api';
 
 export function useAccessLists(): {
   accessLists: AccessListRecord[];
+  supported: boolean;
   isLoading: boolean;
 } {
   const { data, isLoading } = useQuery({
@@ -13,14 +14,7 @@ export function useAccessLists(): {
 
   return {
     accessLists: data?.accessLists ?? [],
+    supported: data?.supported ?? false,
     isLoading,
   };
-}
-
-export function useAccessListName(
-  accessListId: number | null | undefined,
-  accessLists: AccessListRecord[]
-): string | null {
-  if (!accessListId) return null;
-  return accessLists.find(al => al.id === accessListId)?.name ?? null;
 }

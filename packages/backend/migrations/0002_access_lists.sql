@@ -7,4 +7,5 @@ CREATE TABLE `npm_access_lists` (
 	`synced_at` integer
 );
 --> statement-breakpoint
+ALTER TABLE services ADD `access_list_name` text;--> statement-breakpoint
 ALTER TABLE services ADD `access_list_id` integer;

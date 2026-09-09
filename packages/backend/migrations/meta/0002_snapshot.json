@@ -177,6 +177,13 @@
           "notNull": false,
           "autoincrement": false
         },
+        "access_list_name": {
+          "name": "access_list_name",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false,
+          "autoincrement": false
+        },
         "access_list_id": {
           "name": "access_list_id",
           "type": "integer",

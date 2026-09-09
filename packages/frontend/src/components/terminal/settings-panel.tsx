@@ -47,6 +47,8 @@ interface SettingsPanelProps {
 export function SettingsPanel({ settings, isOpen, onClose }: SettingsPanelProps): JSX.Element {
   const visClass = isOpen ? 'max-h-[60vh] opacity-100' : 'max-h-0 opacity-0';
   const proxyConfigured = settings?.proxy?.configured ?? false;
+  // Access lists are an NPM feature; the section stays hidden for Caddy.
+  const npmConfigured = proxyConfigured && settings?.proxy?.provider === 'npm';
   const queryClient = useQueryClient();
 
   const { data: wildcardDetection } = useQuery({
@@ -59,7 +61,7 @@ export function SettingsPanel({ settings, isOpen, onClose }: SettingsPanelProps)
   const { data: accessListsData } = useQuery({
     queryKey: ['access-lists'],
     queryFn: () => api.accessLists.list(),
-    enabled: proxyConfigured && isOpen,
+    enabled: npmConfigured && isOpen,
     staleTime: 60_000,
   });
 
@@ -105,11 +107,12 @@ export function SettingsPanel({ settings, isOpen, onClose }: SettingsPanelProps)
             wildcardDetection={wildcardDetection ?? null}
           />
         </div>
-        {proxyConfigured && (
+        {npmConfigured && (
           <AccessListsSection
             accessLists={accessListsData?.accessLists ?? []}
             onSync={() => syncAccessLists.mutate()}
             isSyncing={syncAccessLists.isPending}
+            syncError={syncAccessLists.error?.message ?? null}
           />
         )}
       </div>
@@ -209,9 +212,15 @@ interface AccessListsSectionProps {
   accessLists: AccessListRecord[];
   onSync: () => void;
   isSyncing: boolean;
+  syncError: string | null;
 }
 
-function AccessListsSection({ accessLists, onSync, isSyncing }: AccessListsSectionProps): JSX.Element {
+function AccessListsSection({
+  accessLists,
+  onSync,
+  isSyncing,
+  syncError,
+}: AccessListsSectionProps): JSX.Element {
   return (
     <div className="mt-6 rounded border border-[#30363d] bg-[#161b22] p-4">
       <div className="mb-3 flex items-center justify-between">
@@ -241,16 +250,20 @@ function AccessListsSection({ accessLists, onSync, isSyncing }: AccessListsSecti
               </div>
               <div className="flex items-center gap-3 text-xs text-[#8b949e]">
                 {al.satisfyAny && <span>satisfy-any</span>}
-                {al.syncedAt && (
-                  <span>synced {new Date(al.syncedAt).toLocaleTimeString()}</span>
-                )}
+                {al.syncedAt && <span>synced {new Date(al.syncedAt).toLocaleTimeString()}</span>}
               </div>
             </div>
           ))}
         </div>
       )}
+      {syncError && <p className="mt-2 text-xs text-[#da3633]">Sync failed: {syncError}</p>}
       <p className="mt-2 text-xs text-[#8b949e]">
-        Use <code className="rounded bg-[#21262d] px-1 text-[#f0883e]">autoxpose.access_list=name</code> to attach an access list to a container.
+        Use{' '}
+        <code className="rounded bg-[#21262d] px-1 text-[#f0883e]">
+          autoxpose.npm.access_list=name
+        </code>{' '}
+        to attach an access list to a container, or{' '}
+        <code className="rounded bg-[#21262d] px-1 text-[#f0883e]">public</code> to remove one.
       </p>
     </div>
   );

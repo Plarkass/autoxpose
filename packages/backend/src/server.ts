@@ -39,7 +39,7 @@ export async function createServer(_config: AppConfig, ctx: AppContext): Promise
   await server.register(createProxyRoutes(ctx.settings), { prefix: '/api/proxy' });
   await server.register(createServicesRoutes(ctx), { prefix: '/api/services' });
   await server.register(createDiscoveryRoutes(ctx), { prefix: '/api/discovery' });
-  await server.register(createSettingsRoutes(ctx.settings, ctx.servicesRepo), {
+  await server.register(createSettingsRoutes(ctx.settings, ctx.servicesRepo, ctx.accessLists), {
     prefix: '/api/settings',
   });
   await server.register(createAccessListRoutes(ctx.accessLists), {

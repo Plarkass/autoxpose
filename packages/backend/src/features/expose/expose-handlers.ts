@@ -1,5 +1,6 @@
 import https from 'node:https';
 import { isIpv4 } from '../../core/platform.js';
+import type { AccessListService } from '../access-lists/access-list.service.js';
 import type { SettingsService } from '../settings/settings.service.js';
 import { waitForDnsPropagation, type PropagationCallback } from './dns-propagation.js';
 import { updateStep, type ProgressEvent, type ProgressStep } from './progress.types.js';
@@ -63,6 +64,7 @@ type ProxyService = {
   port: number;
   scheme: string | null;
   proxyHostId: string | null;
+  accessListName?: string | null;
   accessListId?: number | null;
 };
 type StepType = 'dns' | 'proxy';
@@ -218,13 +220,14 @@ type ProxyExposeParams = {
   fullDomain: string;
   settings: SettingsService;
   lanIp: string;
+  accessLists?: AccessListService;
 };
 export type ProxyExposeResult =
   | { id: string; sslPending?: boolean; sslError?: string }
   | null
   | undefined;
 export async function handleProxyExpose(params: ProxyExposeParams): Promise<ProxyExposeResult> {
-  const { ctx, svc, fullDomain, settings, lanIp } = params;
+  const { ctx, svc, fullDomain, settings, lanIp, accessLists } = params;
   if (svc.proxyHostId) {
     emitSkipped(ctx, 'proxy', 'Already configured');
     return { id: svc.proxyHostId };
@@ -236,9 +239,13 @@ export async function handleProxyExpose(params: ProxyExposeParams): Promise<Prox
       emitSkipped(ctx, 'proxy', 'Skipped');
       return undefined;
     }
+    // Resolved before anything is created: an unknown access list must block
+    // exposure rather than leave the service publicly reachable.
+    const accessListId = accessLists ? await accessLists.accessListIdForCreate(svc) : undefined;
     emitRunning(ctx, 'proxy', 40, 'Checking existing hosts...');
     const existing = await proxy.findByDomain(fullDomain);
     if (existing) {
+      if (accessLists) await accessLists.reconcileProxyHost(svc, existing, proxy);
       await finishProxyStep(ctx, svc.port, fullDomain, true);
       return { id: existing.id };
     }
@@ -251,7 +258,7 @@ export async function handleProxyExpose(params: ProxyExposeParams): Promise<Prox
       targetScheme: (svc.scheme as 'http' | 'https') || 'http',
       ssl: true,
       skipDnsWait: true,
-      accessListId: svc.accessListId ?? undefined,
+      accessListId,
     });
 
     if (host.sslPending) {

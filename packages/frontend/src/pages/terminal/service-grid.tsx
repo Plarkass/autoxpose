@@ -3,6 +3,7 @@ import { TerminalServiceCard } from '../../components/terminal';
 import { useBulkStatusCheck } from '../../hooks/use-bulk-status-check';
 import { useAccessLists } from '../../hooks/use-access-lists';
 import { type ServiceRecord } from '../../lib/api';
+import type { AccessListBadge } from '../../components/terminal/service-card';
 
 interface ServiceGridProps {
   services: ServiceRecord[];
@@ -48,6 +49,13 @@ export function ServiceGrid({
     return m;
   }, [accessLists]);
 
+  const describeAccessList = (service: ServiceRecord): AccessListBadge | null => {
+    const requested = service.accessListName;
+    if (!requested || requested.toLowerCase() === 'public') return null;
+    if (service.accessListId === null) return { name: requested, resolved: false };
+    return { name: accessListMap.get(service.accessListId) ?? requested, resolved: true };
+  };
+
   useEffect(() => {
     checkServices(services);
   }, [services, checkServices]);
@@ -83,7 +91,7 @@ export function ServiceGrid({
             scanTrigger={scanTrigger}
             bulkStatus={statusMap[service.id]}
             isWildcardMode={isWildcardMode}
-            accessListName={service.accessListId ? accessListMap.get(service.accessListId) ?? null : null}
+            accessList={describeAccessList(service)}
           />
         );
       })}

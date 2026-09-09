@@ -22,8 +22,11 @@ interface TerminalServiceCardProps {
   scanTrigger?: number;
   bulkStatus?: { online: boolean; protocol: string | null };
   isWildcardMode: boolean;
-  accessListName?: string | null;
+  accessList?: AccessListBadge | null;
 }
+
+/** An access list reference from a container label, and whether NPM knows it. */
+export type AccessListBadge = { name: string; resolved: boolean };
 export function TerminalServiceCard(props: TerminalServiceCardProps): JSX.Element {
   const {
     service,
@@ -59,7 +62,7 @@ export function TerminalServiceCard(props: TerminalServiceCardProps): JSX.Elemen
         port={service.port}
         scheme={service.scheme || 'http'}
         tags={service.tags}
-        accessListName={props.accessListName ?? null}
+        accessList={props.accessList ?? null}
         onNameChange={onNameChange}
       />
       <EditableSubdomain
@@ -89,13 +92,31 @@ export function TerminalServiceCard(props: TerminalServiceCardProps): JSX.Elemen
     </div>
   );
 }
+function AccessListBadgeChip({ accessList }: { accessList: AccessListBadge }): JSX.Element {
+  const color = accessList.resolved ? '#da3633' : '#d29922';
+  const tooltip = accessList.resolved
+    ? `Access List: ${accessList.name}`
+    : `Access List "${accessList.name}" was not found in NPM. Exposure is blocked until the name matches an existing list, or the label is set to "public".`;
+
+  return (
+    <Tooltip content={tooltip}>
+      <span
+        className="rounded px-2 py-0.5 text-xs font-medium"
+        style={{ background: `${color}20`, color }}
+      >
+        {accessList.resolved ? `AL: ${accessList.name}` : `AL? ${accessList.name}`}
+      </span>
+    </Tooltip>
+  );
+}
+
 interface CardHeaderProps {
   name: string;
   containerName: string;
   port: number;
   scheme: string;
   tags: string | null;
-  accessListName: string | null;
+  accessList: AccessListBadge | null;
   onNameChange: (name: string) => void;
 }
 function CardHeader({
@@ -104,7 +125,7 @@ function CardHeader({
   port,
   scheme,
   tags,
-  accessListName,
+  accessList,
   onNameChange,
 }: CardHeaderProps): JSX.Element {
   const parsedTags = tags ? JSON.parse(tags) : [];
@@ -133,16 +154,7 @@ function CardHeader({
           {(scheme || 'http').toUpperCase()}
         </span>
         <TagBadge tags={parsedTags} />
-        {accessListName && (
-          <Tooltip content={`Access List: ${accessListName}`}>
-            <span
-              className="rounded px-2 py-0.5 text-xs font-medium"
-              style={{ background: '#da3633' + '20', color: '#da3633' }}
-            >
-              AL: {accessListName}
-            </span>
-          </Tooltip>
-        )}
+        {accessList && <AccessListBadgeChip accessList={accessList} />}
       </div>
     </div>
   );

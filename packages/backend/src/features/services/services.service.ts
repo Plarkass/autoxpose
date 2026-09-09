@@ -124,12 +124,12 @@ export class ServicesService {
   async upsertService(discovered: DiscoveredService): Promise<ServiceRecord> {
     const existing = await this.repository.findBySourceId(discovered.id);
     const tags = this.detectServiceTags(discovered);
-    const accessListId = await this.resolveAccessList(discovered.accessListName);
+    const accessList = await this.resolveAccessList(discovered.accessListName);
 
     if (existing) {
       const needsUpdate =
         this.serviceNeedsUpdate(existing, discovered) ||
-        existing.accessListId !== accessListId;
+        this.accessListChanged(existing, accessList);
       if (!needsUpdate) return existing;
       const hasExplicitSubdomain = discovered.labels[`autoxpose.subdomain`] !== undefined;
       const subdomainToUse = hasExplicitSubdomain ? discovered.subdomain : existing.subdomain;
@@ -140,7 +140,7 @@ export class ServicesService {
         scheme: discovered.scheme,
         tags,
         hasExplicitSubdomainLabel: hasExplicitSubdomain,
-        accessListId,
+        ...accessList,
       });
       return updated!;
     }
@@ -153,13 +153,32 @@ export class ServicesService {
       sourceId: discovered.id,
       tags,
       hasExplicitSubdomainLabel: !!discovered.labels['autoxpose.subdomain'],
-      accessListId,
+      ...accessList,
     });
   }
 
-  private async resolveAccessList(name: string | null): Promise<number | null> {
-    if (!name || !this.accessLists) return null;
-    return this.accessLists.resolveByName(name);
+  /**
+   * The label is the source of truth: both the requested name and the id it
+   * resolves to are stored, so an unresolvable name stays visible instead of
+   * silently degrading to public access.
+   */
+  private async resolveAccessList(
+    name: string | null
+  ): Promise<{ accessListName: string | null; accessListId: number | null }> {
+    if (!this.accessLists) return { accessListName: name, accessListId: null };
+    return {
+      accessListName: name,
+      accessListId: await this.accessLists.resolveForStorage(name),
+    };
+  }
+
+  private accessListChanged(
+    existing: ServiceRecord,
+    next: { accessListName: string | null; accessListId: number | null }
+  ): boolean {
+    return (
+      existing.accessListName !== next.accessListName || existing.accessListId !== next.accessListId
+    );
   }
 
   private detectServiceTags(discovered: DiscoveredService): string {
@@ -200,7 +219,7 @@ export class ServicesService {
       if (existingMap.has(disc.id)) continue;
       const tags = this.detectServiceTags(disc);
       const hasExplicitSubdomain = disc.labels[`autoxpose.subdomain`] !== undefined;
-      const accessListId = await this.resolveAccessList(disc.accessListName);
+      const accessList = await this.resolveAccessList(disc.accessListName);
       const svc = await this.repository.create({
         name: disc.name,
         subdomain: disc.subdomain,
@@ -210,7 +229,7 @@ export class ServicesService {
         sourceId: disc.id,
         tags,
         hasExplicitSubdomainLabel: hasExplicitSubdomain,
-        accessListId,
+        ...accessList,
       });
       created.push(svc);
     }
@@ -225,10 +244,9 @@ export class ServicesService {
     for (const disc of discovered) {
       const existing = existingMap.get(disc.id);
       if (!existing) continue;
-      const accessListId = await this.resolveAccessList(disc.accessListName);
+      const accessList = await this.resolveAccessList(disc.accessListName);
       const needsUpdate =
-        this.serviceNeedsUpdate(existing, disc) ||
-        existing.accessListId !== accessListId;
+        this.serviceNeedsUpdate(existing, disc) || this.accessListChanged(existing, accessList);
       if (!needsUpdate) continue;
       const hasExplicitSubdomain = disc.labels[`autoxpose.subdomain`] !== undefined;
       const subdomainToUse = hasExplicitSubdomain ? disc.subdomain : existing.subdomain;
@@ -240,7 +258,7 @@ export class ServicesService {
         scheme: disc.scheme,
         tags,
         hasExplicitSubdomainLabel: hasExplicitSubdomain,
-        accessListId,
+        ...accessList,
       });
       if (upd) updated.push(upd);
     }

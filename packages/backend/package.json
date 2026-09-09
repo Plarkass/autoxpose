@@ -10,7 +10,8 @@
     "lint": "eslint . --ext .ts",
     "type-check": "tsc --noEmit",
     "db:generate": "drizzle-kit generate",
-    "db:migrate": "drizzle-kit migrate"
+    "db:migrate": "drizzle-kit migrate",
+    "test": "tsc --noEmit -p tsconfig.test.json && node --import tsx --test \"test/**/*.test.ts\""
   },
   "dependencies": {
     "@fastify/cors": "^8.5.0",

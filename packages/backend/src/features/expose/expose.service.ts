@@ -251,6 +251,12 @@ export class ExposeService {
       }
     }
 
+    // Throws when the container references an access list we cannot resolve, so
+    // exposure is blocked instead of creating a publicly reachable host.
+    const accessListId = this.context.accessLists
+      ? await this.context.accessLists.accessListIdForCreate(svc)
+      : undefined;
+
     const host = await proxy.createHost({
       domain: fullDomain,
       targetHost: this.context.lanIp,
@@ -258,7 +264,7 @@ export class ExposeService {
       targetScheme: (svc.scheme as 'http' | 'https') || 'http',
       ssl: true,
       certificateId,
-      accessListId: svc.accessListId ?? undefined,
+      accessListId,
     });
     return { id: host.id, sslPending: host.sslPending, sslError: host.sslError };
   }

@@ -11,6 +11,7 @@ export interface ServiceRecord {
   sourceId: string | null;
   dnsRecordId: string | null;
   proxyHostId: number | null;
+  accessListName: string | null;
   accessListId: number | null;
   exposureSource: string | null;
   dnsExists: boolean | null;
@@ -148,7 +149,6 @@ export const api = {
         port: number;
         scheme: string;
         enabled: boolean;
-        accessListId: number | null;
       }>
     ): Promise<{ service: ServiceRecord }> =>
       request<{ service: ServiceRecord }>(`/services/${id}`, {
@@ -213,8 +213,8 @@ export const api = {
       }),
   },
   accessLists: {
-    list: (): Promise<{ accessLists: AccessListRecord[] }> =>
-      request<{ accessLists: AccessListRecord[] }>('/access-lists'),
+    list: (): Promise<{ supported: boolean; accessLists: AccessListRecord[] }> =>
+      request<{ supported: boolean; accessLists: AccessListRecord[] }>('/access-lists'),
     sync: (): Promise<{ synced: number }> =>
       request<{ synced: number }>('/access-lists/sync', { method: 'POST' }),
   },

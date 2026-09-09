@@ -11,6 +11,7 @@ export const services = sqliteTable('services', {
   sourceId: text('source_id'),
   dnsRecordId: text('dns_record_id'),
   proxyHostId: text('proxy_host_id'),
+  accessListName: text('access_list_name'),
   accessListId: integer('access_list_id'),
   exposureSource: text('exposure_source'),
   dnsExists: integer('dns_exists', { mode: 'boolean' }),
