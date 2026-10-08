@@ -197,7 +197,7 @@ function CardFooter(props: CardFooterProps): JSX.Element {
     isWildcardMode,
   } = props;
   return (
-    <div className="flex items-center justify-between">
+    <div className="flex flex-wrap items-center justify-between gap-2">
       <StatusBadge
         serviceId={serviceId}
         isExposed={isExposed}
@@ -207,14 +207,13 @@ function CardFooter(props: CardFooterProps): JSX.Element {
         bulkStatus={bulkStatus}
         isWildcardMode={isWildcardMode}
       />
-      <div className="flex items-center gap-2">
+      <div className="ml-auto flex flex-wrap items-center justify-end gap-2">
         {isExposed && service.sslPending && (
           <Tooltip content="Retry SSL certificate setup">
             <button
               onClick={onRetrySsl}
               disabled={isRetrySslPending}
-              className="rounded border border-[#f0883e] px-2 py-1 text-xs transition-colors hover:bg-[#f0883e20] disabled:opacity-50 disabled:cursor-not-allowed flex items-center gap-1"
-              style={{ color: TERMINAL_COLORS.warning }}
+              className="flex items-center gap-1 rounded border border-yellow-700/50 bg-yellow-900/30 px-2 py-0.5 text-xs text-yellow-400 transition-colors hover:bg-yellow-900/50 disabled:cursor-not-allowed disabled:opacity-50"
             >
               {isRetrySslPending && <InlineSpinner />}
               Retry SSL
