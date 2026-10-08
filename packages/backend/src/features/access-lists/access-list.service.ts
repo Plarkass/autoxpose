@@ -34,7 +34,7 @@ export type AccessListResolution =
   | { kind: 'error'; message: string };
 
 /** The subset of a service record that decides which access list applies. */
-type AccessListTarget = { accessListName?: string | null };
+type AccessListTarget = { accessListName?: string | null; proxyHostId?: string | null };
 
 export class AccessListService {
   constructor(
@@ -238,6 +238,24 @@ export class AccessListService {
     return undefined;
   }
 
+  async prepareProxyHost(
+    target: AccessListTarget,
+    proxy: ProxyProvider,
+    domain: string
+  ): Promise<{ host: ProxyHost | null; accessListId: number | undefined }> {
+    const requested = await this.accessListIdForCreate(target);
+    const hosts = (await proxy.listHosts()).filter(host => host.domain === domain);
+    if (hosts.length > 1) throw new Error(`Multiple proxy hosts match ${domain}`);
+    const host = hosts[0] ?? null;
+    if (target.proxyHostId && host?.id !== target.proxyHostId) {
+      throw new Error('Saved proxy host does not match the requested hostname');
+    }
+    if (!host) return { host: null, accessListId: requested };
+    const verified = await this.reconcileProxyHost(target, host, proxy);
+    if (verified.error) throw new Error(verified.error);
+    return { host, accessListId: verified.accessListId ?? 0 };
+  }
+
   /**
    * Brings an existing NPM host in line with the container's label and reports
    * the access list the host actually carries afterwards.
@@ -264,7 +282,10 @@ export class AccessListService {
     if (desired === actual) return { accessListId: desired || null };
 
     try {
-      await proxy.updateHost(proxyHost.id, { accessListId: desired });
+      const updated = await proxy.updateHost(proxyHost.id, { accessListId: desired });
+      if ((updated.accessListId ?? 0) !== desired) {
+        throw new Error('NPM did not confirm the requested access list');
+      }
       logger.info(
         { host: proxyHost.domain, from: actual, to: desired },
         'Updated NPM access list for proxy host'

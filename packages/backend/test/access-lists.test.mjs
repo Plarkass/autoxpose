@@ -7,6 +7,7 @@ import Database from 'better-sqlite3';
 import { drizzle } from 'drizzle-orm/better-sqlite3';
 import * as schema from '../dist/core/database/schema.js';
 import { AccessListService } from '../dist/features/access-lists/access-list.service.js';
+import { SyncService } from '../dist/features/services/sync.service.js';
 
 const migrationsDir = join(dirname(fileURLToPath(import.meta.url)), '..', 'migrations');
 
@@ -269,4 +270,47 @@ test('cached lists are dropped when the proxy configuration changes', async () =
   assert.deepEqual(await service.getAll(), []);
   const rows = await db.select().from(schema.services);
   assert.equal(rows[0].accessListId, null);
+});
+
+test('access-list writes require one exact host and never promote a discovery suggestion', async () => {
+  for (const mode of ['port-only', 'fuzzy', 'duplicate-exact', 'exact']) {
+    const service = await syncedService([FAMILY]);
+    const record = {
+      id: 'service',
+      name: mode === 'fuzzy' ? 'grafana-monitor' : 'new-service',
+      subdomain: 'new-service',
+      source: 'docker',
+      sourceId: 'container',
+      port: 3000,
+      scheme: 'http',
+      enabled: false,
+      proxyHostId: null,
+      dnsRecordId: null,
+      exposureSource: null,
+      hasExplicitSubdomainLabel: true,
+      accessListName: 'public',
+      accessListId: null,
+    };
+    const host = existingHost(2);
+    if (mode === 'exact' || mode === 'duplicate-exact') host.domain = 'new-service.example.com';
+    const hosts = mode === 'duplicate-exact' ? [host, { ...host, id: 'other' }] : [host];
+    const proxy = { ...fakeProxy(host), listHosts: async () => hosts };
+    const settings = {
+      getDnsProvider: async () => null,
+      getProxyProvider: async () => proxy,
+      getBaseDomainFromAnySource: async () => 'example.com',
+      getWildcardConfig: async () => ({ enabled: true }),
+    };
+    const repository = { update: async (_id, input) => Object.assign(record, input) };
+    const sync = new SyncService(repository, settings, undefined, service);
+    await sync.detectExistingConfigurations([record]);
+    if (mode === 'exact') {
+      assert.deepEqual(proxy.updates, [{ hostId: '7', input: { accessListId: 0 } }]);
+    } else {
+      await sync.detectExistingConfigurations([record]);
+      assert.deepEqual(proxy.updates, [], mode);
+      assert.equal(record.subdomain, 'new-service', mode);
+      assert.equal(record.proxyHostId, null, mode);
+    }
+  }
 });

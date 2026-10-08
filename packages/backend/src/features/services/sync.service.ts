@@ -1,10 +1,9 @@
 import type { DnsRecord } from '../dns/dns.types.js';
-import type { ProxyHost } from '../proxy/proxy.types.js';
+import type { ProxyHost, ProxyProvider } from '../proxy/proxy.types.js';
 import type { SettingsService } from '../settings/settings.service.js';
 import type { ServiceRecord, ServicesRepository } from './services.repository.js';
 import type { DockerDiscoveryProvider } from '../discovery/docker.js';
 import type { AccessListService } from '../access-lists/access-list.service.js';
-import type { ProxyProvider } from '../proxy/proxy.types.js';
 import { createLogger } from '../../core/logger/index.js';
 import {
   isCleanerSubdomain,
@@ -199,8 +198,16 @@ export class SyncService {
     data: ProviderData
   ): Promise<void> {
     let dnsRecord = findMatchingDnsRecord(service, data.dnsRecords, data.baseDomain);
-    const proxyHost = findMatchingProxyHost(service, data.proxyHosts, data.baseDomain);
-
+    const expectedDomain = data.baseDomain
+      ? `${service.subdomain}.${data.baseDomain}`
+      : service.subdomain;
+    const exactHosts = data.proxyHosts.filter(host => host.domain === expectedDomain);
+    const proxyHost =
+      this.accessLists && service.accessListName != null
+        ? exactHosts.length === 1
+          ? exactHosts[0]
+          : undefined
+        : findMatchingProxyHost(service, data.proxyHosts, data.baseDomain);
     this.logDetectionResults(service, dnsRecord, proxyHost, data);
 
     const exposedSubdomain = getExposedSubdomain(proxyHost ?? null, data.baseDomain);
@@ -225,18 +232,13 @@ export class SyncService {
     await this.servicesRepo.update(service.id, { ...updateData, ...accessListId });
   }
 
-  /**
-   * Aligns the NPM host with the container's access list label before the new
-   * state is stored, so the badge can never claim a protection the proxy is not
-   * actually enforcing. Returns nothing to persist when there is no host to
-   * compare against.
-   */
   private async reconcileAccessList(
     service: ServiceRecord,
     proxyHost: ProxyHost | undefined,
     proxy: ProxyProvider | null
   ): Promise<{ accessListId?: number | null }> {
-    if (!this.accessLists || !proxyHost || !proxy) return {};
+    if (!this.accessLists) return {};
+    if (!proxyHost || !proxy) return { accessListId: null };
     const result = await this.accessLists.reconcileProxyHost(service, proxyHost, proxy);
     if (result.error) {
       logger.warn(

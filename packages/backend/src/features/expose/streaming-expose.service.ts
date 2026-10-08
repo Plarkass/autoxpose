@@ -67,8 +67,12 @@ export class StreamingExposeService {
       settings: this.settings,
       lanIp: this.lanIp,
       accessLists: this.accessLists,
-      onHost: async id => {
-        await this.servicesRepo.update(serviceId, { proxyHostId: id, proxyExists: true });
+      onHost: async (id, accessListId) => {
+        await this.servicesRepo.update(serviceId, {
+          proxyHostId: id,
+          proxyExists: true,
+          ...(accessListId !== undefined && { accessListId: accessListId || null }),
+        });
       },
     });
     if (proxyResult === null) return;

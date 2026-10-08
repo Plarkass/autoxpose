@@ -166,22 +166,11 @@ export class ServicesService {
     });
   }
 
-  /**
-   * The label is the source of truth: both the requested name and the id it
-   * resolves to are stored, so an unresolvable name stays visible instead of
-   * silently degrading to public access.
-   */
   private async resolveAccessList(
     name: string | null | undefined
-  ): Promise<{ accessListName?: string | null; accessListId?: number | null }> {
-    // Without an access list service there is no NPM to resolve against, so the
-    // columns are left untouched rather than written as null.
+  ): Promise<{ accessListName?: string | null }> {
     if (!this.accessLists) return {};
-    const requested = name ?? null;
-    return {
-      accessListName: requested,
-      accessListId: await this.accessLists.resolveForStorage(requested),
-    };
+    return { accessListName: name ?? null };
   }
 
   private accessListChanged(
@@ -189,9 +178,7 @@ export class ServicesService {
     next: { accessListName?: string | null; accessListId?: number | null }
   ): boolean {
     if (next.accessListName === undefined) return false;
-    return (
-      existing.accessListName !== next.accessListName || existing.accessListId !== next.accessListId
-    );
+    return existing.accessListName !== next.accessListName;
   }
 
   private detectServiceTags(discovered: DiscoveredService, existing?: ServiceRecord): string {
